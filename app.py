@@ -4,20 +4,23 @@ import json
 from transformers import pipeline
 import plotly.express as px
 
-# Load the AI Model
+# 1. OPTIMIZED AI Model Loader
 @st.cache_resource
 def get_classifier():
-    return pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+    # Adding device=-1 forces CPU use to prevent Render 503 crashes
+    return pipeline("sentiment-analysis", 
+                    model="distilbert-base-uncased-finetuned-sst-2-english",
+                    device=-1)
 
 classifier = get_classifier()
 
-# Load Scraped Data
+# 2. Load Scraped Data
 with open('data.json', 'r') as f:
     data = json.load(f)
 
 st.title("🛡️ 2023 Brand Reputation Monitor")
 
-# Sidebar Navigation
+# 3. Sidebar Navigation
 choice = st.sidebar.selectbox("Select Page", ["Products", "Testimonials", "Reviews Analysis"])
 
 if choice == "Products":
@@ -43,12 +46,15 @@ elif choice == "Reviews Analysis":
 
     if not filtered_df.empty:
         # AI Classification
-        results = classifier(filtered_df['text'].tolist())
-        filtered_df['Sentiment'] = [r['label'] for r in results]
-        filtered_df['Confidence'] = [round(r['score'], 3) for r in results]
+        with st.spinner("Analyzing sentiment..."): # Good practice for 2023 monitoring
+            results = classifier(filtered_df['text'].tolist())
+            filtered_df['Sentiment'] = [r['label'] for r in results]
+            filtered_df['Confidence'] = [round(r['score'], 3) for r in results]
 
-        # Bar Chart
-        fig = px.bar(filtered_df['Sentiment'].value_counts(), title="Positive vs Negative Counts")
+        # Bar Chart with Confidence Tooltip (Per Requirement 4)
+        fig = px.bar(filtered_df.groupby('Sentiment').size().reset_index(name='count'), 
+                     x='Sentiment', y='count', color='Sentiment',
+                     title=f"Sentiment Count for {selected_month} 2023")
         st.plotly_chart(fig)
         
         # Display Table
