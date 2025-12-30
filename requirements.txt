@@ -1,7 +1,8 @@
 streamlit
 pandas
-requests
-beautifulsoup4
-transformers==4.47.1
+transformers
 torch --index-url https://download.pytorch.org/whl/cpu
 plotly
+beautifulsoup4
+requests
+
