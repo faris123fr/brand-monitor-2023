@@ -4,60 +4,87 @@ import json
 from transformers import pipeline
 import plotly.express as px
 
-# 1. OPTIMIZED AI Model Loader
+# --- 1. CONFIGURATION & LIGHTWEIGHT MODEL LOADING ---
+st.set_page_config(page_title="2023 Brand Monitor", layout="wide")
+
 @st.cache_resource
 def get_classifier():
-    # Adding device=-1 forces CPU use to prevent Render 503 crashes
-    return pipeline("sentiment-analysis", 
-                    model="distilbert-base-uncased-finetuned-sst-2-english",
-                    device=-1)
+    """
+    Loads TinyBERT: The smallest possible transformer model to avoid 503 errors.
+    device=-1 ensures CPU usage for stability.
+    """
+    return pipeline(
+        "sentiment-analysis", 
+        model="prajjwal1/bert-tiny",
+        device=-1
+    )
 
+# Initialize the model
 classifier = get_classifier()
 
-# 2. Load Scraped Data
-with open('data.json', 'r') as f:
-    data = json.load(f)
+# --- 2. DATA LOADING ---
+@st.cache_data
+def load_data():
+    try:
+        with open('data.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        st.error("data.json not found. Please run scraper.py first.")
+        return None
 
+data = load_data()
+
+# --- 3. UI - SIDEBAR NAVIGATION ---
 st.title("🛡️ 2023 Brand Reputation Monitor")
-
-# 3. Sidebar Navigation
+st.sidebar.header("Navigation")
 choice = st.sidebar.selectbox("Select Page", ["Products", "Testimonials", "Reviews Analysis"])
 
-if choice == "Products":
-    st.header("Available Products")
-    st.table(pd.DataFrame(data['products']))
+if data:
+    # --- 4. PAGE: PRODUCTS ---
+    if choice == "Products":
+        st.header("📦 Scraped Products")
+        st.table(pd.DataFrame(data['products']))
 
-elif choice == "Testimonials":
-    st.header("What Customers Say")
-    for t in data['testimonials']:
-        st.chat_message("user").write(f"{t['user']}: {t['content']}")
+    # --- 5. PAGE: TESTIMONIALS ---
+    elif choice == "Testimonials":
+        st.header("💬 Customer Testimonials")
+        for t in data['testimonials']:
+            with st.chat_message("user"):
+                st.write(f"**{t['user']}**")
+                st.write(t['content'])
 
-elif choice == "Reviews Analysis":
-    st.header("Deep Learning Sentiment Analysis")
-    
-    # Month Filter
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    selected_month = st.select_slider("Select Month (2023)", options=months)
-    
-    # Filtering Logic
-    month_num = str(months.index(selected_month) + 1).zfill(2)
-    df = pd.DataFrame(data['reviews'])
-    filtered_df = df[df['date'].str.contains(f"2023-{month_num}")].copy()
-
-    if not filtered_df.empty:
-        # AI Classification
-        with st.spinner("Analyzing sentiment..."): # Good practice for 2023 monitoring
-            results = classifier(filtered_df['text'].tolist())
-            filtered_df['Sentiment'] = [r['label'] for r in results]
-            filtered_df['Confidence'] = [round(r['score'], 3) for r in results]
-
-        # Bar Chart with Confidence Tooltip (Per Requirement 4)
-        fig = px.bar(filtered_df.groupby('Sentiment').size().reset_index(name='count'), 
-                     x='Sentiment', y='count', color='Sentiment',
-                     title=f"Sentiment Count for {selected_month} 2023")
-        st.plotly_chart(fig)
+    # --- 6. PAGE: REVIEWS ANALYSIS (CORE FEATURE) ---
+    elif choice == "Reviews Analysis":
+        st.header("🧠 Sentiment Analysis (TinyBERT)")
         
-        # Display Table
-        st.dataframe(filtered_df)
-    else:
-        st.warning(f"No reviews found for {selected_month} 2023.")
+        # Month Selection Slider
+        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        selected_month = st.select_slider("Select Month in 2023", options=months)
+        
+        # Filtering Logic
+        month_num = str(months.index(selected_month) + 1).zfill(2)
+        df = pd.DataFrame(data['reviews'])
+        filtered_df = df[df['date'].str.contains(f"2023-{month_num}")].copy()
+
+        if not filtered_df.empty:
+            # AI Classification
+            with st.spinner("Analyzing..."):
+                results = classifier(filtered_df['text'].tolist())
+                filtered_df['Sentiment'] = [r['label'] for r in results]
+                filtered_df['Confidence'] = [round(r['score'], 4) for r in results]
+
+            # --- VISUALIZATION ---
+            chart_data = filtered_df.groupby('Sentiment').agg(
+                Count=('Sentiment', 'count'),
+                Avg_Confidence=('Confidence', 'mean')
+            ).reset_index()
+
+            fig = px.bar(
+                chart_data, x='Sentiment', y='Count', color='Sentiment',
+                hover_data={'Avg_Confidence': ':.4f'},
+                title=f"Sentiment Distribution: {selected_month} 2023"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            st.dataframe(filtered_df, use_container_width=True)
+        else:
+            st.warning(f"No reviews found for {selected_month} 2023.")
