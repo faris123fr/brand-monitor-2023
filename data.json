@@ -1,0 +1,19 @@
+{
+    "products": [
+        {"name": "Energy Boost Serum", "price": "$25.00"},
+        {"name": "Night Repair Cream", "price": "$40.00"},
+        {"name": "Daily Cleanser", "price": "$15.00"},
+        {"name": "Hydrating Mist", "price": "$22.00"}
+    ],
+    "reviews": [
+        {"date": "2023-01-15", "text": "This serum is amazing! My skin feels so much better."},
+        {"date": "2023-01-22", "text": "Very disappointed, it caused a breakout. Would not buy again."},
+        {"date": "2023-05-10", "text": "It is okay, but I have used better cleansers before."},
+        {"date": "2023-08-14", "text": "Absolutely terrible service and the product was leaky."},
+        {"date": "2023-08-20", "text": "Best purchase of 2023. Five stars for the hydrating mist!"},
+        {"date": "2023-12-05", "text": "The night cream works well, but the smell is a bit strong."}
+    ],
+    "testimonials": [
+        {"user": "Sarah J.", "content": "I've been a loyal customer all through 2023!"}
+    ]
+}
